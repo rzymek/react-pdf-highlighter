@@ -57,38 +57,39 @@ export function HighlightLayer<T_HT extends IHighlight>({
   const currentHighlights = highlightsByPage[String(pageNumber)] || [];
   return (
     <div>
-      {viewer && currentHighlights.map((highlight, index) => {
-        const viewportHighlight: T_ViewportHighlight<T_HT> = {
-          ...highlight,
-          position: scaledPositionToViewport(highlight.position),
-        };
+      {viewer &&
+        currentHighlights.map((highlight, index) => {
+          const viewportHighlight: T_ViewportHighlight<T_HT> = {
+            ...highlight,
+            position: scaledPositionToViewport(highlight.position),
+          };
 
-        if (tip && tip.highlight.id === String(highlight.id)) {
-          showTip(tip.highlight, tip.callback(viewportHighlight));
-        }
+          if (tip && tip.highlight.id === String(highlight.id)) {
+            showTip(tip.highlight, tip.callback(viewportHighlight));
+          }
 
-        const isScrolledTo = Boolean(scrolledToHighlightId === highlight.id);
+          const isScrolledTo = Boolean(scrolledToHighlightId === highlight.id);
 
-        return highlightTransform(
-          viewportHighlight,
-          index,
-          (highlight, callback) => {
-            setTip({ highlight, callback });
-            showTip(highlight, callback(highlight));
-          },
-          hideTipAndSelection,
-          (rect) => {
-            const viewport = viewer.getPageView(
-              (rect.pageNumber || Number.parseInt(pageNumber)) - 1,
-            ).viewport;
+          return highlightTransform(
+            viewportHighlight,
+            index,
+            (highlight, callback) => {
+              setTip({ highlight, callback });
+              showTip(highlight, callback(highlight));
+            },
+            hideTipAndSelection,
+            (rect) => {
+              const viewport = viewer.getPageView(
+                (rect.pageNumber || Number.parseInt(pageNumber)) - 1,
+              ).viewport;
 
-            return viewportToScaled(rect, viewport);
-          },
-          (boundingRect) =>
-            screenshot(boundingRect, Number.parseInt(pageNumber)),
-          isScrolledTo,
-        );
-      })}
+              return viewportToScaled(rect, viewport);
+            },
+            (boundingRect) =>
+              screenshot(boundingRect, Number.parseInt(pageNumber)),
+            isScrolledTo,
+          );
+        })}
     </div>
   );
 }
