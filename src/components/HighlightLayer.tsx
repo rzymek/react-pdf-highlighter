@@ -32,7 +32,7 @@ interface HighlightLayerProps<T_HT> {
   } | null;
   scaledPositionToViewport: (scaledPosition: ScaledPosition) => Position;
   hideTipAndSelection: () => void;
-  viewer: PDFViewer;
+  viewer: PDFViewer | undefined;
   screenshot: (position: LTWH, pageNumber: number) => string;
   showTip: (highlight: T_ViewportHighlight<T_HT>, content: JSX.Element) => void;
   setTip: (state: {
@@ -57,7 +57,7 @@ export function HighlightLayer<T_HT extends IHighlight>({
   const currentHighlights = highlightsByPage[String(pageNumber)] || [];
   return (
     <div>
-      {currentHighlights.map((highlight, index) => {
+      {viewer && currentHighlights.map((highlight, index) => {
         const viewportHighlight: T_ViewportHighlight<T_HT> = {
           ...highlight,
           position: scaledPositionToViewport(highlight.position),
