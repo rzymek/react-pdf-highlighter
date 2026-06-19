@@ -1,5 +1,9 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import type { EventBus, PDFViewer } from "pdfjs-dist/legacy/web/pdf_viewer.mjs";
+import type {
+  EventBus,
+  PDFLinkService,
+  PDFViewer,
+} from "pdfjs-dist/legacy/web/pdf_viewer.mjs";
 import type { PDFViewerOptions } from "pdfjs-dist/types/web/pdf_viewer";
 import React, {
   type PointerEventHandler,
@@ -101,6 +105,8 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
   };
 
   viewer: PDFViewer | undefined = undefined;
+  eventBus: EventBus | undefined = undefined;
+  linkService: PDFLinkService | undefined = undefined;
 
   resizeObserver: ResizeObserver | null = null;
   containerNode?: HTMLDivElement | null = null;
@@ -164,19 +170,18 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
     const { pdfDocument, pdfViewerOptions } = this.props;
     const pdfjs = await import("pdfjs-dist/web/pdf_viewer.mjs");
 
-    const eventBus = new pdfjs.EventBus();
-    const linkService = new pdfjs.PDFLinkService({
-      eventBus,
-      externalLinkTarget: 2,
-    });
-
     if (!this.containerNodeRef.current) {
       throw new Error("!");
     }
 
-    this.viewer =
-      this.viewer ||
-      new pdfjs.PDFViewer({
+    if (!this.viewer) {
+      const eventBus = new pdfjs.EventBus();
+      const linkService = new pdfjs.PDFLinkService({
+        eventBus,
+        externalLinkTarget: 2,
+      });
+
+      this.viewer = new pdfjs.PDFViewer({
         container: this.containerNodeRef.current,
         eventBus: eventBus,
         // enhanceTextSelection: true, // deprecated. https://github.com/mozilla/pdf.js/issues/9943#issuecomment-409369485
@@ -186,11 +191,19 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
         ...pdfViewerOptions,
       });
 
-    linkService.setDocument(pdfDocument);
-    linkService.setViewer(this.viewer);
-    this.viewer.setDocument(pdfDocument);
+      this.eventBus = eventBus;
+      this.linkService = linkService;
+      linkService.setViewer(this.viewer);
+      this.attachRef(eventBus);
+    }
 
-    this.attachRef(eventBus);
+    // Guard against calling setDocument with the same document (e.g. React 18
+    // strict-mode double-mount), which would reset _pages mid-initialization
+    // and cause pdf.js to crash in its lazy page-loading loop.
+    if (this.viewer.pdfDocument !== pdfDocument) {
+      this.linkService?.setDocument(pdfDocument);
+      this.viewer.setDocument(pdfDocument);
+    }
   }
 
   componentWillUnmount() {
