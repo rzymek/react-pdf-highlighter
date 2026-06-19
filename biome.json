@@ -25,6 +25,6 @@
     "clientKind": "git"
   },
   "files": {
-    "ignore": ["package.json"]
+    "ignore": ["package.json", ".pnpm-store", ".claude"]
   }
 }
