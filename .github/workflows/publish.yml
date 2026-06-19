@@ -21,7 +21,9 @@ jobs:
       with:
         node-version: lts/*
     - run: pnpm install --frozen-lockfile
-    - run: pnpm exec playwright install --with-deps
+    - run: pnpm exec playwright install --with-deps chromium
+      env:
+        DEBIAN_FRONTEND: noninteractive
     - run: pnpm run build
     - run: pnpm test
     - id: publish
