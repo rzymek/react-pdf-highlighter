@@ -114,6 +114,7 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
   highlightRoots: {
     [page: number]: { reactRoot: Root; container: Element };
   } = {};
+  documentUpdateQueue: Promise<void> = Promise.resolve();
   unsubscribe = () => {};
 
   constructor(props: Props<T_HT>) {
@@ -167,7 +168,7 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
   }
 
   async init() {
-    const { pdfDocument, pdfViewerOptions } = this.props;
+    const { pdfViewerOptions } = this.props;
     const pdfjs = await import("pdfjs-dist/web/pdf_viewer.mjs");
 
     if (!this.containerNodeRef.current) {
@@ -197,13 +198,38 @@ export class PdfHighlighter<T_HT extends IHighlight> extends PureComponent<
       this.attachRef(eventBus);
     }
 
-    // Guard against calling setDocument with the same document (e.g. React 18
-    // strict-mode double-mount), which would reset _pages mid-initialization
-    // and cause pdf.js to crash in its lazy page-loading loop.
-    if (this.viewer.pdfDocument !== pdfDocument) {
-      this.linkService?.setDocument(pdfDocument);
-      this.viewer.setDocument(pdfDocument);
+    // Chain onto the queue rather than syncing the document directly: pdf.js
+    // lazily fetches pages 2..N in the background after setDocument resolves
+    // the first page, and calling setDocument again with a new document
+    // before that background loop finishes crashes pdf.js (it resets
+    // `_pages` for the new document while promises from the previous one are
+    // still indexing into it). syncDocument waits for that to settle first.
+    this.documentUpdateQueue = this.documentUpdateQueue
+      .catch(() => {})
+      .then(() => this.syncDocument());
+    await this.documentUpdateQueue;
+  }
+
+  private async syncDocument() {
+    const { viewer, linkService } = this;
+    if (!viewer) {
+      return;
     }
+
+    const pdfDocument = this.props.pdfDocument;
+    if (viewer.pdfDocument === pdfDocument) {
+      return;
+    }
+
+    await viewer.pagesPromise?.catch(() => {});
+
+    // Re-check after the wait: the viewer or the desired document may have
+    // moved on while we were waiting for the previous document to settle.
+    if (!this.viewer || this.viewer.pdfDocument === this.props.pdfDocument) {
+      return;
+    }
+    linkService?.setDocument(this.props.pdfDocument);
+    this.viewer.setDocument(this.props.pdfDocument);
   }
 
   componentWillUnmount() {
